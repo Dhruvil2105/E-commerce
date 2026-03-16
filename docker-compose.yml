@@ -1,0 +1,115 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────
+# E-Commerce Microservices — Infrastructure
+#
+# This file starts all the infrastructure services we need.
+# Run with: docker-compose up -d
+#
+# What starts:
+#   PostgreSQL  → database for all 6 services
+#   RabbitMQ    → message broker for async events
+#   Seq         → centralized log viewer
+#   Jaeger      → distributed trace viewer
+#
+# -d flag means "detached" — runs in background.
+# Your terminal is free to use while containers run.
+# ─────────────────────────────────────────────────────────────
+
+services:
+# ── PostgreSQL ──────────────────────────────────────────────
+  # One PostgreSQL server but SEPARATE databases per service.
+  # This enforces the Database-per-Service pattern.
+  # The init script creates each database and user automatically.
+  postgres:
+    image: postgres:16-alpine
+
+    # alpine = lightweight Linux image.
+    # Smaller download, faster startup, less memory.
+
+    container_name: ecommerce-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5432:5432"
+      # LEFT:RIGHT  →  host:container
+      # You connect from your machine on port 5432
+      # which maps to port 5432 inside the container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+        # Named volume — data persists even if container restarts.
+        # Without this, all data is lost every restart.
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+        # This SQL file runs automatically on first startup.
+        # Creates all 6 databases and their users.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Healthcheck tells Docker "is this container actually ready?"
+      # Other services wait for this to pass before starting.
+      # Without it, services might start before PostgreSQL is ready
+      # and crash because they cannot connect.  
+
+  # ── RabbitMQ ────────────────────────────────────────────────
+  # Message broker — receives events from publishers
+  # and delivers them to consumers.
+  # management-alpine = includes the web management UI.
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: ecommerce-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+        # AMQP port — services connect here to publish/consume messages
+      - "15672:15672"
+        # Management UI — open http://localhost:15672 in your browser
+        # Login: guest / guest
+        # You can see queues, messages, and consumer connections live
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+   # ── Seq ─────────────────────────────────────────────────────
+  # Centralized log viewer.
+  # All 6 services send their structured JSON logs here.
+  # You can search logs across all services in one place.
+  # Open http://localhost:8081 in your browser.
+  seq:
+    image: datalust/seq:latest
+    container_name: ecommerce-seq
+    environment:
+      ACCEPT_EULA: "Y"
+        # Required — must accept the license agreement
+    ports:
+      - "5341:5341"
+        # Ingest port — services send logs to this port
+      - "8081:80"
+        # Web UI — open http://localhost:8081 to view logs
+
+   # ── Jaeger ──────────────────────────────────────────────────
+  # Distributed trace viewer.
+  # Shows the full journey of a request across all services
+  # as a waterfall diagram.
+  # Open http://localhost:16686 in your browser.
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: ecommerce-jaeger
+    ports:
+      - "6831:6831/udp"
+        # UDP port — services send trace data here
+      - "16686:16686"
+        # Web UI — open http://localhost:16686 to view traces
+
+# ── Named Volumes ───────────────────────────────────────────
+# Volumes are like persistent hard drives for containers.
+# Data stored here survives container restarts and rebuilds.
+volumes:
+  postgres_data:

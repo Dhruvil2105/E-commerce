@@ -1,10 +1,15 @@
 <Solution>
+  <Folder Name="/scripts/">
+    <File Path="init-databases.sql" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="docker-compose.yml" />
+  </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Gateway/">
     <Project Path="src/Gateway/ECommerce.Gateway/ECommerce.Gateway.csproj" />
   </Folder>
   <Folder Name="/src/Services/">
-    <Project Path="src/Services/ECommerce.$name/ECommerce.$name.csproj" />
     <Project Path="src/Services/ECommerce.Identity/ECommerce.Identity.csproj" />
     <Project Path="src/Services/ECommerce.Inventory/ECommerce.Inventory.csproj" />
     <Project Path="src/Services/ECommerce.Notification/ECommerce.Notification.csproj" />
