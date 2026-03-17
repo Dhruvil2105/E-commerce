@@ -1,4 +1,4 @@
-version: '3.9'
+
 
 # ─────────────────────────────────────────────────────────────
 # E-Commerce Microservices — Infrastructure
@@ -108,6 +108,20 @@ services:
         # UDP port — services send trace data here
       - "16686:16686"
         # Web UI — open http://localhost:16686 to view traces
+
+  adminer:
+    image: adminer:latest
+    container_name: ecommerce-adminer
+    ports:
+      - "8080:8080"
+        # Web UI — open http://localhost:8080 to manage databases
+        # Login with PostgreSQL credentials:
+        # System: PostgreSQL
+        # Server: postgres
+        # Username: admin
+        # Password: secret
+
+
 
 # ── Named Volumes ───────────────────────────────────────────
 # Volumes are like persistent hard drives for containers.
