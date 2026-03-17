@@ -87,6 +87,7 @@ services:
     container_name: ecommerce-seq
     environment:
       ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: "admin123"
         # Required — must accept the license agreement
     ports:
       - "5341:5341"
