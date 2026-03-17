@@ -4,6 +4,23 @@ A production-grade microservices system built with **.NET 8**, demonstrating rea
 
 ---
 
+## Build Status
+
+| Step | Service
+|---|------------
+| 1 | Shared library (BaseMessage, ApiResponse, Events, Middleware) 
+| 2 | Docker Compose (PostgreSQL, RabbitMQ, Seq, Jaeger, Adminer) 
+| 3 | Identity Service (Register, Login, JWT) 
+| 4 | API Gateway (YARP + JWT validation)
+| 5 | Product Service 
+| 6 | Order Service (Saga orchestrator) 
+| 7 | Payment Service (Idempotency + Circuit Breaker)
+| 8 | Inventory Service
+| 9 | Notification Service (Event consumer)
+| 10 | Observability (OpenTelemetry + Serilog + Seq)
+
+---
+
 ## Architecture Overview
 
 ```
@@ -51,7 +68,7 @@ Identity      Product      Order        Payment       Inventory
 ## Patterns Implemented
 
 | Pattern | Where |
-|---------|-------|
+|---|---|
 | API Gateway | ECommerce.Gateway (YARP) |
 | Database per Service | Each service has its own PostgreSQL database |
 | Saga (Choreography) | Order → Payment → Inventory flow via RabbitMQ |
@@ -70,7 +87,7 @@ Identity      Product      Order        Payment       Inventory
 ## Technology Stack
 
 | Concern | Library | Version |
-|---------|---------|---------|
+|---|---|---|
 | Framework | .NET | 8.0 |
 | API Gateway | YARP (Yet Another Reverse Proxy) | 2.x |
 | ORM | Entity Framework Core | 8.0 |
@@ -84,6 +101,7 @@ Identity      Product      Order        Payment       Inventory
 | Log Viewer | Seq | latest |
 | Distributed Tracing | OpenTelemetry | 1.x |
 | Trace Viewer | Jaeger | latest |
+| DB Viewer | Adminer | latest |
 
 ---
 
@@ -94,6 +112,7 @@ Before running this project make sure you have:
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 - [Visual Studio 2022](https://visualstudio.microsoft.com/) or [VS Code](https://code.visualstudio.com/)
+- EF Core tools — `dotnet tool install --global dotnet-ef`
 
 ---
 
@@ -106,89 +125,132 @@ git clone https://github.com/Dhruvil2105/E-commerce.git
 cd E-commerce
 ```
 
-### Step 2 — Start infrastructure (PostgreSQL, RabbitMQ, Seq, Jaeger)
+### Step 2 — Start infrastructure
 
 ```bash
 docker-compose up -d
 ```
 
-Wait about 30 seconds then verify all containers are running:
+Verify all 5 containers are running:
 
 ```bash
 docker-compose ps
 ```
 
-All 4 should show status **Up**:
-
 ```
-ecommerce-postgres    Up
-ecommerce-rabbitmq    Up
+ecommerce-postgres    Up (healthy)
+ecommerce-rabbitmq    Up (healthy)
 ecommerce-seq         Up
 ecommerce-jaeger      Up
+ecommerce-adminer     Up
 ```
 
 ### Step 3 — Apply database migrations
 
 ```bash
 cd src/Services/ECommerce.Identity
+dotnet ef migrations add InitialCreate
 dotnet ef database update
 
 cd ../ECommerce.Product
+dotnet ef migrations add InitialCreate
 dotnet ef database update
 
 cd ../ECommerce.Order
+dotnet ef migrations add InitialCreate
 dotnet ef database update
 
 cd ../ECommerce.Payment
+dotnet ef migrations add InitialCreate
 dotnet ef database update
 
 cd ../ECommerce.Inventory
+dotnet ef migrations add InitialCreate
 dotnet ef database update
 ```
 
 ### Step 4 — Run all services
 
-Open the solution in Visual Studio → right-click Solution → **Configure Startup Projects** → select **Multiple startup projects** → set all 7 projects to **Start**.
-
-Or run each service individually:
-
-```bash
-cd src/Gateway/ECommerce.Gateway
-dotnet run
-
-cd src/Services/ECommerce.Identity
-dotnet run
-# repeat for all services
-```
+Open solution in Visual Studio → right-click Solution → **Configure Startup Projects** → **Multiple startup projects** → set all 7 to **Start**.
 
 ---
 
 ## Access URLs
 
-| Service | URL |
-|---|---|
-| API Gateway | http://localhost:5000 |
-| Identity Swagger | http://localhost:5001/swagger |
-| Product Swagger | http://localhost:5002/swagger |
-| Order Swagger | http://localhost:5003/swagger |
-| Payment Swagger | http://localhost:5004/swagger |
-| Inventory Swagger | http://localhost:5005/swagger |
-| RabbitMQ Dashboard | http://localhost:15672 (guest / guest) |
-| Seq Log Viewer | http://localhost:8081 (admin / admin123) |
-| Jaeger Trace Viewer | http://localhost:16686 |
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| API Gateway | http://localhost:5000 | — |
+| Identity Swagger | http://localhost:5001/swagger | — |
+| Product Swagger | http://localhost:5002/swagger | — |
+| Order Swagger | http://localhost:5003/swagger | — |
+| Payment Swagger | http://localhost:5004/swagger | — |
+| Inventory Swagger | http://localhost:5005/swagger | — |
+| RabbitMQ Dashboard | http://localhost:15672 | guest / guest |
+| Seq Log Viewer | http://localhost:8081 | admin / admin123 |
+| Jaeger Trace Viewer | http://localhost:16686 | — |
+| Adminer (DB viewer) | http://localhost:8080 | See below |
+
+### Adminer Login
+
+| Field | Value |
+|-------|-------|
+| System | PostgreSQL |
+| Server | postgres |
+| Username | admin |
+| Password | secret |
+| Database | postgres |
+
+Switch database to view individual service data:
+`ecommerce_identity` · `ecommerce_product` · `ecommerce_order` · `ecommerce_payment` · `ecommerce_inventory` · `ecommerce_notification`
 
 ---
 
 ## API Endpoints
 
-### Identity Service
+### Identity Service 
 
 ```
-POST /api/auth/register    Register a new user
-POST /api/auth/login       Login and get JWT token
+POST /api/auth/register    Register a new user account
+POST /api/auth/login       Login and receive JWT token
 ```
 
-### Product Service
+**Register request:**
+```json
+{
+  "email": "ravi@example.com",
+  "password": "mypassword123",
+  "fullName": "Ravi Sharma"
+}
+```
+
+**Response (success):**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJhbGci...",
+    "expiresAt": "2026-03-17T11:00:00Z",
+    "userId": "3f2504e0-...",
+    "email": "ravi@example.com",
+    "fullName": "Ravi Sharma",
+    "role": "Customer"
+  },
+  "error": null,
+  "traceId": ""
+}
+```
+
+**Response (failure):**
+```json
+{
+  "success": false,
+  "data": null,
+  "error": "Email address is already registered",
+  "traceId": ""
+}
+```
+
+### Product Service 
 
 ```
 GET    /api/products           Get all products
@@ -198,7 +260,7 @@ PUT    /api/products/{id}      Update product (Admin only)
 DELETE /api/products/{id}      Delete product (Admin only)
 ```
 
-### Order Service
+### Order Service 
 
 ```
 POST   /api/orders             Place a new order
@@ -206,7 +268,7 @@ GET    /api/orders             Get my orders
 GET    /api/orders/{id}        Get order by ID
 ```
 
-### Inventory Service
+### Inventory Service 
 
 ```
 GET    /api/inventory/{productId}    Get stock level
@@ -243,7 +305,7 @@ PUT    /api/inventory/{productId}    Update stock (Admin only)
    sends confirmation email
 ```
 
-## Failure Path Flow (Saga Compensation)
+## Failure Path — Saga Compensation
 
 ```
 1. POST /api/orders              → Place order
@@ -251,14 +313,13 @@ PUT    /api/inventory/{productId}    Update stock (Admin only)
 3. Payment is declined           ✗ FAILED
           │
           ▼
-   Compensating transactions:
+   Compensating transactions run in reverse:
    → Inventory releases reserved stock
    → Order marked CANCELLED
    → Notification sends cancellation email
 ```
 
 ---
-
 
 ## Key Design Decisions
 
@@ -274,17 +335,25 @@ MassTransit handles consumer retries, dead-letter queues, saga state machines, a
 ### Why record for events?
 Events are immutable data — once published they never change. C# `record` types enforce value equality and immutability, which is exactly what event messages need.
 
+### Why ApiResponse\<T\> wrapper?
+Every endpoint across all 6 services returns the same shape. The frontend always checks `success` first then reads `data` or `error`. No guessing about response shape.
+
+### Why IAuthService interface?
+The controller depends on the interface — not the concrete class. This enables unit testing without a real database and allows swapping implementations without touching the controller.
+
 ---
 
 ## Environment Variables
 
-Each service reads configuration from environment variables in production:
+| Variable | Description | Example |
+|---|---|---|
+| `ConnectionStrings__Default` | PostgreSQL connection string | `Host=postgres;Database=ecommerce_identity;...` |
+| `Jwt__Secret` | JWT signing secret (min 32 chars) | `super-secret-key-...` |
+| `Jwt__Issuer` | JWT issuer name | `ecommerce-identity` |
+| `Jwt__ExpiryMinutes` | Token expiry in minutes | `60` |
+| `RabbitMQ__Host` | RabbitMQ hostname | `rabbitmq` |
+| `RabbitMQ__Username` | RabbitMQ username | `guest` |
+| `RabbitMQ__Password` | RabbitMQ password | `guest` |
+| `Seq__Url` | Seq log ingest URL | `http://seq:5341` |
 
-| Variable | Description |
-|----------|-------------|
-| `ConnectionStrings__Default` | PostgreSQL connection string |
-| `Jwt__Secret` | JWT signing secret (min 32 chars) |
-| `Jwt__Issuer` | JWT issuer name |
-| `RabbitMQ__Host` | RabbitMQ hostname |
-| `RabbitMQ__Username` | RabbitMQ username |
-| `RabbitMQ__Password` | RabbitMQ password |
+---
