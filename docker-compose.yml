@@ -7,7 +7,6 @@
 # Run with: docker-compose up -d
 #
 # What starts:
-#   PostgreSQL  → database for all 6 services
 #   RabbitMQ    → message broker for async events
 #   Seq         → centralized log viewer
 #   Jaeger      → distributed trace viewer
@@ -17,42 +16,6 @@
 # ─────────────────────────────────────────────────────────────
 
 services:
-# ── PostgreSQL ──────────────────────────────────────────────
-  # One PostgreSQL server but SEPARATE databases per service.
-  # This enforces the Database-per-Service pattern.
-  # The init script creates each database and user automatically.
-  postgres:
-    image: postgres:16-alpine
-
-    # alpine = lightweight Linux image.
-    # Smaller download, faster startup, less memory.
-
-    container_name: ecommerce-postgres
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: ecommerce
-    ports:
-      - "5432:5432"
-      # LEFT:RIGHT  →  host:container
-      # You connect from your machine on port 5432
-      # which maps to port 5432 inside the container
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-        # Named volume — data persists even if container restarts.
-        # Without this, all data is lost every restart.
-      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
-        # This SQL file runs automatically on first startup.
-        # Creates all 6 databases and their users.
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      # Healthcheck tells Docker "is this container actually ready?"
-      # Other services wait for this to pass before starting.
-      # Without it, services might start before PostgreSQL is ready
-      # and crash because they cannot connect.  
 
   # ── RabbitMQ ────────────────────────────────────────────────
   # Message broker — receives events from publishers
@@ -108,19 +71,6 @@ services:
         # UDP port — services send trace data here
       - "16686:16686"
         # Web UI — open http://localhost:16686 to view traces
-
-  adminer:
-    image: adminer:latest
-    container_name: ecommerce-adminer
-    ports:
-      - "8080:8080"
-        # Web UI — open http://localhost:8080 to manage databases
-        # Login with PostgreSQL credentials:
-        # System: PostgreSQL
-        # Server: postgres
-        # Username: admin
-        # Password: secret
-
 
 
 # ── Named Volumes ───────────────────────────────────────────
