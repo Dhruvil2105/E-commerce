@@ -1,5 +1,6 @@
 using ECommerce.Identity.Data;
 using ECommerce.Identity.Interface;
+using ECommerce.Identity.Models;
 using ECommerce.Identity.Services;
 using ECommerce.Shared.Middleware;
 using Microsoft.EntityFrameworkCore;
@@ -71,7 +72,36 @@ try
         // Safe to call even if there are no pending migrations.
         dbContext.Database.Migrate();
 
-        Log.Information("Database migrations applied successfully");
+        var adminExists = await dbContext.Users.AnyAsync(u => u.Role == "Admin");
+
+        if (!adminExists)
+        {
+            var config = scope.ServiceProvider
+                .GetRequiredService<IConfiguration>();
+
+            var adminEmail = config["AdminSeed:Email"];
+            var adminPassword = config["AdminSeed:Password"];
+            var adminName = config["AdminSeed:FullName"];
+
+            if (!string.IsNullOrEmpty(adminEmail))
+            {
+                dbContext.Users.Add(new User
+                {
+                    Email = adminEmail.ToLower(),
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(
+                                       adminPassword!, 11),
+                    FullName = adminName ?? "System Admin",
+                    Role = "Admin",
+                    TenantId = "default",
+                });
+
+                await dbContext.SaveChangesAsync();
+
+                Log.Information("Default admin account seeded: {Email}", adminEmail);
+            }
+
+            Log.Information("Database migrations applied successfully");
+        }
     }
 
     if (app.Environment.IsDevelopment())
@@ -106,7 +136,7 @@ try
 catch (Exception ex)
 {
     Log.Fatal(ex, "Identity service failed to start");
-   
+
 }
 finally
 {
