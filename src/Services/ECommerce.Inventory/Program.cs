@@ -65,6 +65,7 @@ try
     {
         x.AddConsumer<OrderPlacedConsumer>();
         x.AddConsumer<StockReleasedConsumer>();
+        x.AddConsumer<ProductCreatedConsumer>();
 
         x.UsingRabbitMq((ctx, cfg) =>
         {

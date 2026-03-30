@@ -25,6 +25,21 @@ try
             .WriteTo.Console()
             .WriteTo.Seq(hostingContext.Configuration["Seq:Url"] ?? "http://localhost:5341");
     });
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowAngular", policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://localhost:4200",   // Angular dev server
+                    "http://localhost:3000"    // Alternative port
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        });
+    });
+
 
     // ── YARP Reverse Proxy ───────────────────────────────────
     // Reads routing config from appsettings.json (ReverseProxy section)
@@ -63,6 +78,7 @@ try
     var app = builder.Build();
 
     app.UseSerilogRequestLogging();
+    app.UseCors("AllowAngular");
     app.UseAuthentication();
     app.UseAuthorization();
 

@@ -2,6 +2,7 @@ using ECommerce.Product.Data;
 using ECommerce.Product.Interface;
 using ECommerce.Product.Services;
 using ECommerce.Shared.Middleware;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -70,6 +71,27 @@ try
 
     // ── Services ─────────────────────────────────────────────
     builder.Services.AddScoped<IProductService, ProductService>();
+
+    // ── MassTransit + RabbitMQ ───────────────────────────────
+    builder.Services.AddMassTransit(x =>
+    {
+        // Product Service only publishes — no consumers
+        x.UsingRabbitMq((ctx, cfg) =>
+        {
+            cfg.Host(
+                builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+                builder.Configuration["RabbitMQ:VHost"] ?? "/",
+                h =>
+                {
+                    h.Username(builder.Configuration["RabbitMQ:Username"]
+                        ?? "guest");
+                    h.Password(builder.Configuration["RabbitMQ:Password"]
+                        ?? "guest");
+                });
+
+            cfg.ConfigureEndpoints(ctx);
+        });
+    });
 
     // ── CurrentUser middleware ────────────────────────────────
     builder.Services.AddCurrentUser();

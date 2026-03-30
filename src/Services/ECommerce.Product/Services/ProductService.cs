@@ -2,6 +2,9 @@
 using ECommerce.Product.DTOs;
 using ECommerce.Product.Interface;
 using ECommerce.Shared.DTOs;
+using ECommerce.Shared.Events;
+using MassTransit;
+using MassTransit.Testing;
 using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Product.Services
@@ -10,6 +13,7 @@ namespace ECommerce.Product.Services
     {
         private readonly ProductDbContext _context;
         private readonly ILogger<ProductService> _logger;
+        private readonly IPublishEndpoint _publishEndpoint;
 
         /// <summary>Maximum allowed image size — 5MB</summary>
         private const int MaxImageBytes = 5 * 1024 * 1024;
@@ -18,10 +22,11 @@ namespace ECommerce.Product.Services
         private static readonly string[] AllowedImageTypes =
             ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-        public ProductService(ProductDbContext context, ILogger<ProductService> logger)
+        public ProductService(ProductDbContext context, ILogger<ProductService> logger, IPublishEndpoint publishEndpoint)
         {
             _context = context;
             _logger = logger;
+            _publishEndpoint = publishEndpoint;
         }
 
         /// <inheritdoc/>
@@ -124,6 +129,19 @@ namespace ECommerce.Product.Services
                 "Tenant: {TenantId}",
                 product.Id, product.Name,
                 product.ImageData != null, tenantId);
+
+            // Publish event so Inventory Service creates a stock record
+            await _publishEndpoint.Publish(new ProductCreatedEvent
+            {
+                TraceId = Guid.NewGuid().ToString(),
+                TenantId = tenantId,
+                ProductId = product.Id,
+                Name = product.Name,
+                Price = product.Price,
+                InitialStock = 0,
+                // InitialStock = 0 means admin must manually
+                // set stock via PUT /api/inventory/{productId}
+            });
 
             return ApiResponse<ProductDto>.Ok(MapToDto(product));
         }
