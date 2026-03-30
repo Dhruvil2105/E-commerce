@@ -35,7 +35,7 @@ namespace ECommerce.Shared.Events
     //   Step 3: Inventory Service reserves the stock
     //   Step 4: Order Service confirms the order
     // ────────────────────────────────────────────────────────────
-    public record OrderEvents : BaseMessage
+    public record OrderPlacedEvent : BaseMessage
     {
         /// <summary>
         /// Unique ID of the order that was just created.

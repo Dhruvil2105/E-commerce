@@ -110,6 +110,7 @@ namespace ECommerce.Product.Controllers
         /// Creates a new product. Admin only.
         /// </summary>
         [HttpPost]
+        [AdminOnly]
         [ProducesResponseType(typeof(ApiResponse<ProductDto>), 201)]
         [ProducesResponseType(typeof(ApiResponse<ProductDto>), 400)]
         [ProducesResponseType(typeof(ApiResponse<ProductDto>), 401)]
@@ -117,11 +118,6 @@ namespace ECommerce.Product.Controllers
         public async Task<ActionResult<ApiResponse<ProductDto>>> Create(
             [FromForm] CreateProductRequest form)
         {
-            // Enforce Admin role — only admins can create products
-            if (!_currentUser.IsAdmin)
-                return StatusCode(403,
-                    ApiResponse<ProductDto>.Fail(
-                        "Only admins can create products"));
 
             var request = new CreateProductRequest
             {
@@ -144,6 +140,7 @@ namespace ECommerce.Product.Controllers
         /// Updates an existing product. Admin only.
         /// </summary>
         [HttpPut("{id:guid}")]
+        [AdminOnly]
         [ProducesResponseType(typeof(ApiResponse<ProductDto>), 200)]
         [ProducesResponseType(typeof(ApiResponse<ProductDto>), 400)]
         [ProducesResponseType(typeof(ApiResponse<ProductDto>), 401)]
@@ -152,10 +149,7 @@ namespace ECommerce.Product.Controllers
         public async Task<ActionResult<ApiResponse<ProductDto>>> Update(
             Guid id, [FromForm] UpdateProductRequest form)
         {
-            if (!_currentUser.IsAdmin)
-                return StatusCode(403,
-                    ApiResponse<ProductDto>.Fail(
-                        "Only admins can update products"));
+            
             var request = new UpdateProductRequest
             {
                 Name = form.Name,
@@ -179,17 +173,13 @@ namespace ECommerce.Product.Controllers
         /// Soft deletes a product. Admin only.
         /// </summary>
         [HttpDelete("{id:guid}")]
+        [AdminOnly]
         [ProducesResponseType(typeof(ApiResponse<bool>), 200)]
         [ProducesResponseType(typeof(ApiResponse<bool>), 401)]
         [ProducesResponseType(typeof(ApiResponse<bool>), 403)]
         [ProducesResponseType(typeof(ApiResponse<bool>), 404)]
         public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id)
         {
-            if (!_currentUser.IsAdmin)
-                return StatusCode(403,
-                    ApiResponse<bool>.Fail(
-                        "Only admins can delete products"));
-
             var result = await _productService
              .DeleteAsync(id, _currentUser.TenantId);
 
